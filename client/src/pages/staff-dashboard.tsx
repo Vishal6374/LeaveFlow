@@ -9,9 +9,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Presentation, Check, X, LogOut } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import type { LeaveRequest, User } from "@shared/schema";
+import type { LeaveRequest, User, ActivityLog } from "@shared/schema";
 
 type LeaveRequestWithStudent = LeaveRequest & { student: User };
+type ActivityLogWithDetails = ActivityLog & { 
+  leaveRequest: LeaveRequest & { student: User }; 
+  actionBy: User 
+};
 
 export default function StaffDashboard() {
   const { user, logoutMutation } = useAuth();
@@ -26,6 +30,10 @@ export default function StaffDashboard() {
     queryKey: ["/api/leave-requests/recent"],
   });
 
+  const { data: activityLogs = [], isLoading: loadingActivity } = useQuery<ActivityLogWithDetails[]>({
+    queryKey: ["/api/activity-logs"],
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "approved" | "rejected" }) => {
       const res = await apiRequest("PATCH", `/api/leave-requests/${id}/status`, { status });
@@ -34,6 +42,7 @@ export default function StaffDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave-requests/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leave-requests/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
       toast({
         title: "Success",
         description: "Request status updated successfully",
@@ -133,6 +142,13 @@ export default function StaffDashboard() {
                     value="logs" 
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-4"
                     data-testid="tab-logs"
+                  >
+                    Recent Activity
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="activity" 
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-4"
+                    data-testid="tab-activity"
                   >
                     Activity Logs
                   </TabsTrigger>
@@ -243,6 +259,60 @@ export default function StaffDashboard() {
                             request.status === "approved" ? "text-success/80" : "text-destructive/80"
                           }`} data-testid={`log-timestamp-${request.id}`}>
                             {request.reviewedAt ? format(new Date(request.reviewedAt), 'MMM dd, h:mm a') : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="activity" className="p-6 mt-0">
+                {loadingActivity ? (
+                  <div className="text-center py-8">Loading activity logs...</div>
+                ) : activityLogs.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500" data-testid="text-no-activity">
+                    No shared activity logs found.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-sm text-gray-600 mb-4">
+                      Shared activity between HOD and class advisors for department requests
+                    </div>
+                    {activityLogs.map((log) => (
+                      <div 
+                        key={log.id}
+                        className={`border-l-4 p-4 rounded-r-lg ${
+                          log.action === "approved" 
+                            ? "border-success bg-success/5" 
+                            : log.action === "rejected"
+                            ? "border-destructive bg-destructive/5"
+                            : "border-blue-500 bg-blue-50"
+                        }`}
+                        data-testid={`activity-${log.id}`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className={`text-sm font-medium ${
+                              log.action === "approved" ? "text-success" : 
+                              log.action === "rejected" ? "text-destructive" : "text-blue-700"
+                            }`} data-testid={`activity-action-${log.id}`}>
+                              {log.action === "approved" ? "✓" : log.action === "rejected" ? "✗" : "📋"} 
+                              {" "}{log.actionBy.name} {log.action} leave request for {log.leaveRequest.student.name}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-1" data-testid={`activity-details-${log.id}`}>
+                              {log.year ? `${log.year}${log.year === 1 ? 'st' : log.year === 2 ? 'nd' : log.year === 3 ? 'rd' : 'th'} Year` : ''} {log.department} - {log.leaveRequest.type} Leave
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1" data-testid={`activity-reason-${log.id}`}>
+                              {log.leaveRequest.reason}
+                            </p>
+                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                              <span>Duration: {format(new Date(log.leaveRequest.fromDate), 'MMM dd')} - {format(new Date(log.leaveRequest.toDate), 'MMM dd, yyyy')}</span>
+                              <span>Reviewer: {log.actionBy.role === 'hod' ? 'HOD' : 'Class Advisor'}</span>
+                            </div>
+                          </div>
+                          <span className="text-xs text-gray-500" data-testid={`activity-timestamp-${log.id}`}>
+                            {format(new Date(log.actionAt), 'MMM dd, h:mm a')}
                           </span>
                         </div>
                       </div>

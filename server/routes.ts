@@ -213,6 +213,20 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Activity logs routes
+  app.get("/api/activity-logs", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const logs = await storage.getActivityLogsForReviewer(req.user!.id);
+      res.json(logs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

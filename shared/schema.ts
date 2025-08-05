@@ -47,6 +47,17 @@ export const departmentAssignments = pgTable("department_assignments", {
   hodId: varchar("hod_id").references(() => users.id),
 });
 
+// Activity logs table for shared logging between HOD and class advisor
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leaveRequestId: varchar("leave_request_id").notNull().references(() => leaveRequests.id),
+  actionBy: varchar("action_by").notNull().references(() => users.id),
+  action: varchar("action").notNull(), // "approved", "rejected", "submitted"
+  actionAt: timestamp("action_at").defaultNow(),
+  department: departmentEnum("department").notNull(),
+  year: integer("year").notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
   leaveRequests: many(leaveRequests),
@@ -86,6 +97,17 @@ export const departmentAssignmentsRelations = relations(departmentAssignments, (
   }),
 }));
 
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  leaveRequest: one(leaveRequests, {
+    fields: [activityLogs.leaveRequestId],
+    references: [leaveRequests.id],
+  }),
+  actionBy: one(users, {
+    fields: [activityLogs.actionBy],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -107,6 +129,11 @@ export const insertDepartmentAssignmentSchema = createInsertSchema(departmentAss
   id: true,
 });
 
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  actionAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -114,6 +141,8 @@ export type LeaveRequest = typeof leaveRequests.$inferSelect;
 export type InsertLeaveRequest = z.infer<typeof insertLeaveRequestSchema>;
 export type DepartmentAssignment = typeof departmentAssignments.$inferSelect;
 export type InsertDepartmentAssignment = z.infer<typeof insertDepartmentAssignmentSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 
 // Registration schema for students
 export const studentRegistrationSchema = insertUserSchema.extend({

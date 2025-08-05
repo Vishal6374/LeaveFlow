@@ -2,12 +2,15 @@ import {
   users, 
   leaveRequests, 
   departmentAssignments,
+  activityLogs,
   type User, 
   type InsertUser, 
   type LeaveRequest,
   type InsertLeaveRequest,
   type DepartmentAssignment,
-  type InsertDepartmentAssignment
+  type InsertDepartmentAssignment,
+  type ActivityLog,
+  type InsertActivityLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, or } from "drizzle-orm";
@@ -40,11 +43,15 @@ export interface IStorage {
   updateDepartmentAssignment(id: string, assignment: Partial<InsertDepartmentAssignment>): Promise<DepartmentAssignment | undefined>;
   getAllDepartmentAssignments(): Promise<(DepartmentAssignment & { classAdvisor?: User; hod?: User })[]>;
 
-  sessionStore: session.SessionStore;
+  // Activity log operations
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLogsForReviewer(reviewerId: string): Promise<any[]>;
+
+  sessionStore: any;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -199,6 +206,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateLeaveRequestStatus(id: string, status: string, reviewerId: string): Promise<LeaveRequest | undefined> {
+    // Get the leave request with student info to determine department/year
+    const leaveRequestWithStudent = await db
+      .select({
+        leaveRequest: leaveRequests,
+        student: users
+      })
+      .from(leaveRequests)
+      .innerJoin(users, eq(leaveRequests.studentId, users.id))
+      .where(eq(leaveRequests.id, id))
+      .limit(1);
+
+    if (leaveRequestWithStudent.length === 0) return undefined;
+
+    const { student } = leaveRequestWithStudent[0];
+
+    // Update the leave request status
     const [request] = await db
       .update(leaveRequests)
       .set({ 
@@ -208,6 +231,18 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(leaveRequests.id, id))
       .returning();
+
+    // Create activity log for shared viewing between HOD and class advisor
+    if (request && student.department && student.year) {
+      await this.createActivityLog({
+        leaveRequestId: id,
+        actionBy: reviewerId,
+        action: status,
+        department: student.department,
+        year: student.year
+      });
+    }
+
     return request || undefined;
   }
 
@@ -309,6 +344,147 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Activity log operations
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [result] = await db
+      .insert(activityLogs)
+      .values(log)
+      .returning();
+    return result;
+  }
+
+  async getActivityLogsForReviewer(reviewerId: string): Promise<any[]> {
+    const reviewer = await this.getUser(reviewerId);
+    if (!reviewer) return [];
+
+    let query;
+
+    if (reviewer.role === 'admin') {
+      // Admin can see all activity logs
+      query = db
+        .select({
+          id: activityLogs.id,
+          leaveRequestId: activityLogs.leaveRequestId,
+          actionBy: activityLogs.actionBy,
+          action: activityLogs.action,
+          actionAt: activityLogs.actionAt,
+          department: activityLogs.department,
+          year: activityLogs.year,
+          leaveRequest: {
+            id: leaveRequests.id,
+            studentId: leaveRequests.studentId,
+            type: leaveRequests.type,
+            fromDate: leaveRequests.fromDate,
+            toDate: leaveRequests.toDate,
+            reason: leaveRequests.reason,
+            status: leaveRequests.status,
+            reviewedBy: leaveRequests.reviewedBy,
+            reviewedAt: leaveRequests.reviewedAt,
+            submittedAt: leaveRequests.submittedAt,
+            student: {
+              id: users.id,
+              username: users.username,
+              name: users.name,
+              role: users.role,
+              department: users.department,
+              year: users.year,
+              email: users.email,
+              sinNumber: users.sinNumber,
+              password: users.password,
+              createdAt: users.createdAt,
+            }
+          },
+          actionBy: {
+            id: users.id,
+            username: users.username,
+            name: users.name,
+            role: users.role,
+            department: users.department,
+            year: users.year,
+            email: users.email,
+            sinNumber: users.sinNumber,
+            password: users.password,
+            createdAt: users.createdAt,
+          }
+        })
+        .from(activityLogs)
+        .innerJoin(leaveRequests, eq(activityLogs.leaveRequestId, leaveRequests.id))
+        .innerJoin(users, eq(leaveRequests.studentId, users.id))
+        .innerJoin(users, eq(activityLogs.actionBy, users.id))
+        .orderBy(desc(activityLogs.actionAt));
+    } else if (reviewer.role === 'hod') {
+      // HOD can see activity logs for their department
+      query = db
+        .select({
+          id: activityLogs.id,
+          leaveRequestId: activityLogs.leaveRequestId,
+          actionBy: activityLogs.actionBy,
+          action: activityLogs.action,
+          actionAt: activityLogs.actionAt,
+          department: activityLogs.department,
+          year: activityLogs.year,
+          leaveRequest: leaveRequests,
+          actionBy: users
+        })
+        .from(activityLogs)
+        .innerJoin(leaveRequests, eq(activityLogs.leaveRequestId, leaveRequests.id))
+        .innerJoin(users, eq(activityLogs.actionBy, users.id))
+        .where(eq(activityLogs.department, reviewer.department!))
+        .orderBy(desc(activityLogs.actionAt));
+    } else if (reviewer.role === 'teacher') {
+      // Teacher can see activity logs for classes they are assigned to
+      const assignments = await db
+        .select()
+        .from(departmentAssignments)
+        .where(eq(departmentAssignments.classAdvisorId, reviewerId));
+
+      if (assignments.length === 0) return [];
+
+      const assignmentConditions = assignments.map(assignment => 
+        and(
+          eq(activityLogs.department, assignment.department),
+          eq(activityLogs.year, assignment.year)
+        )
+      );
+
+      query = db
+        .select({
+          id: activityLogs.id,
+          leaveRequestId: activityLogs.leaveRequestId,
+          actionBy: activityLogs.actionBy,
+          action: activityLogs.action,
+          actionAt: activityLogs.actionAt,
+          department: activityLogs.department,
+          year: activityLogs.year,
+          leaveRequest: leaveRequests,
+          actionBy: users
+        })
+        .from(activityLogs)
+        .innerJoin(leaveRequests, eq(activityLogs.leaveRequestId, leaveRequests.id))
+        .innerJoin(users, eq(activityLogs.actionBy, users.id))
+        .where(assignmentConditions.length === 1 ? assignmentConditions[0] : or(...assignmentConditions))
+        .orderBy(desc(activityLogs.actionAt));
+    } else {
+      return [];
+    }
+
+    const result = await query;
+    
+    // For each result, fetch the student info for the leave request
+    const withStudentInfo = await Promise.all(result.map(async (log) => {
+      const student = await this.getUser(log.leaveRequest.studentId);
+      return {
+        ...log,
+        leaveRequest: {
+          ...log.leaveRequest,
+          student: student!
+        }
+      };
+    }));
+
+    return withStudentInfo as any;
   }
 }
 
