@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,9 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings, LogOut, User, Edit } from "lucide-react";
+import { Settings, LogOut, User, Edit, Plus, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import type { User as UserType, DepartmentAssignment } from "@shared/schema";
 
 type DepartmentAssignmentWithUsers = DepartmentAssignment & {
@@ -16,10 +22,27 @@ type DepartmentAssignmentWithUsers = DepartmentAssignment & {
   hod?: UserType;
 };
 
+const editUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  department: z.enum(["CSE", "AIDS", "ECE", "EEE", "MECH", "CIVIL"]).optional(),
+  year: z.number().min(1).max(4).optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  sinNumber: z.string().optional(),
+});
+
+const assignmentSchema = z.object({
+  department: z.enum(["CSE", "AIDS", "ECE", "EEE", "MECH", "CIVIL"]),
+  year: z.number().min(1).max(4),
+  classAdvisorId: z.string().optional(),
+  hodId: z.string().optional(),
+});
+
 export default function AdminDashboard() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("users");
+  const [editingUser, setEditingUser] = useState<UserType | null>(null);
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
 
   const { data: users = [], isLoading: loadingUsers } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
@@ -50,12 +73,125 @@ export default function AdminDashboard() {
     },
   });
 
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, userData }: { id: string; userData: z.infer<typeof editUserSchema> }) => {
+      const res = await apiRequest("PATCH", `/api/users/${id}`, userData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setEditingUser(null);
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createAssignmentMutation = useMutation({
+    mutationFn: async (assignmentData: z.infer<typeof assignmentSchema>) => {
+      const res = await apiRequest("POST", "/api/department-assignments", assignmentData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/department-assignments"] });
+      setAssignmentDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Department assignment created successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateAssignmentMutation = useMutation({
+    mutationFn: async ({ id, assignmentData }: { id: string; assignmentData: Partial<z.infer<typeof assignmentSchema>> }) => {
+      const res = await apiRequest("PATCH", `/api/department-assignments/${id}`, assignmentData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/department-assignments"] });
+      toast({
+        title: "Success",
+        description: "Assignment updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     logoutMutation.mutate();
   };
 
   const handleRoleUpdate = (userId: string, newRole: string) => {
     updateRoleMutation.mutate({ id: userId, role: newRole });
+  };
+
+  const handleUserEdit = (userItem: UserType) => {
+    setEditingUser(userItem);
+  };
+
+  const editForm = useForm<z.infer<typeof editUserSchema>>({
+    resolver: zodResolver(editUserSchema),
+    defaultValues: {
+      name: "",
+      department: undefined,
+      year: undefined,
+      email: "",
+      sinNumber: "",
+    },
+  });
+
+  // Reset form when editing user changes
+  useEffect(() => {
+    if (editingUser) {
+      editForm.reset({
+        name: editingUser.name || "",
+        department: editingUser.department || undefined,
+        year: editingUser.year || undefined,
+        email: editingUser.email || "",
+        sinNumber: editingUser.sinNumber || "",
+      });
+    }
+  }, [editingUser, editForm]);
+
+  const assignmentForm = useForm<z.infer<typeof assignmentSchema>>({
+    resolver: zodResolver(assignmentSchema),
+    defaultValues: {
+      department: "CSE",
+      year: 1,
+      classAdvisorId: "",
+      hodId: "",
+    },
+  });
+
+  const onEditSubmit = (data: z.infer<typeof editUserSchema>) => {
+    if (editingUser) {
+      updateUserMutation.mutate({ id: editingUser.id, userData: data });
+    }
+  };
+
+  const onAssignmentSubmit = (data: z.infer<typeof assignmentSchema>) => {
+    createAssignmentMutation.mutate(data);
   };
 
   const getStatusBadge = (role: string) => {
@@ -70,6 +206,9 @@ export default function AdminDashboard() {
         return <Badge variant="secondary">Student</Badge>;
     }
   };
+
+  const getTeachers = () => users.filter(u => u.role === 'teacher');
+  const getHods = () => users.filter(u => u.role === 'hod');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -188,6 +327,7 @@ export default function AdminDashboard() {
                                 variant="ghost" 
                                 size="sm" 
                                 className="text-primary hover:text-primary/80"
+                                onClick={() => handleUserEdit(userItem)}
                                 data-testid={`button-edit-${userItem.id}`}
                               >
                                 <Edit className="h-4 w-4" />
@@ -208,27 +348,189 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Class Advisor Assignments */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Class Advisor Assignments</h3>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Class Assignments</h3>
+                        <Dialog open={assignmentDialogOpen} onOpenChange={setAssignmentDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" data-testid="button-add-assignment">
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Assignment
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Create Department Assignment</DialogTitle>
+                              <DialogDescription>
+                                Assign teachers and HODs to department classes.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <Form {...assignmentForm}>
+                              <form onSubmit={assignmentForm.handleSubmit(onAssignmentSubmit)} className="space-y-4">
+                                <FormField
+                                  control={assignmentForm.control}
+                                  name="department"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Department</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select department" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="CSE">Computer Science</SelectItem>
+                                          <SelectItem value="AIDS">AI & Data Science</SelectItem>
+                                          <SelectItem value="ECE">Electronics</SelectItem>
+                                          <SelectItem value="EEE">Electrical</SelectItem>
+                                          <SelectItem value="MECH">Mechanical</SelectItem>
+                                          <SelectItem value="CIVIL">Civil</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={assignmentForm.control}
+                                  name="year"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Year</FormLabel>
+                                      <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select year" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="1">1st Year</SelectItem>
+                                          <SelectItem value="2">2nd Year</SelectItem>
+                                          <SelectItem value="3">3rd Year</SelectItem>
+                                          <SelectItem value="4">4th Year</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={assignmentForm.control}
+                                  name="classAdvisorId"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Class Advisor (Teacher)</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select teacher" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          {getTeachers().map((teacher) => (
+                                            <SelectItem key={teacher.id} value={teacher.id}>
+                                              {teacher.name}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={assignmentForm.control}
+                                  name="hodId"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>HOD</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select HOD" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          {getHods().map((hod) => (
+                                            <SelectItem key={hod.id} value={hod.id}>
+                                              {hod.name}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <div className="flex justify-end space-x-2">
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={() => setAssignmentDialogOpen(false)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button 
+                                    type="submit" 
+                                    disabled={createAssignmentMutation.isPending}
+                                  >
+                                    {createAssignmentMutation.isPending ? "Creating..." : "Create Assignment"}
+                                  </Button>
+                                </div>
+                              </form>
+                            </Form>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+
                       {assignments.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500" data-testid="text-no-class-assignments">
-                          No class assignments found.
+                        <div className="text-center py-8 text-gray-500" data-testid="text-no-assignments">
+                          No department assignments found. Create one to get started.
                         </div>
                       ) : (
                         <div className="space-y-4">
                           {assignments.map((assignment) => (
-                            <div key={assignment.id} className="border border-gray-200 rounded-lg p-4" data-testid={`card-class-${assignment.id}`}>
+                            <div key={assignment.id} className="border border-gray-200 rounded-lg p-4" data-testid={`card-assignment-${assignment.id}`}>
                               <div className="flex justify-between items-start mb-3">
                                 <div>
-                                  <h4 className="font-medium text-gray-900" data-testid={`class-title-${assignment.id}`}>
+                                  <h4 className="font-medium text-gray-900" data-testid={`assignment-title-${assignment.id}`}>
                                     {assignment.year ? `${assignment.year}${assignment.year === 1 ? 'st' : assignment.year === 2 ? 'nd' : assignment.year === 3 ? 'rd' : 'th'}` : ''} Year {assignment.department}
                                   </h4>
-                                  <p className="text-sm text-gray-600" data-testid={`class-advisor-${assignment.id}`}>
-                                    Class Advisor: {assignment.classAdvisor?.name || "Not assigned"}
-                                  </p>
+                                  <div className="mt-2 space-y-1">
+                                    <p className="text-sm text-gray-600" data-testid={`class-advisor-${assignment.id}`}>
+                                      <UserCheck className="inline h-4 w-4 mr-1" />
+                                      Class Advisor: {assignment.classAdvisor?.name || "Not assigned"}
+                                    </p>
+                                    <p className="text-sm text-gray-600" data-testid={`hod-${assignment.id}`}>
+                                      <Settings className="inline h-4 w-4 mr-1" />
+                                      HOD: {assignment.hod?.name || "Not assigned"}
+                                    </p>
+                                  </div>
                                 </div>
-                                <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80" data-testid={`button-edit-class-${assignment.id}`}>
-                                  Edit
-                                </Button>
+                                <div className="flex space-x-2">
+                                  <Select 
+                                    value={assignment.classAdvisorId || ""} 
+                                    onValueChange={(value) => updateAssignmentMutation.mutate({ 
+                                      id: assignment.id, 
+                                      assignmentData: { classAdvisorId: value } 
+                                    })}
+                                  >
+                                    <SelectTrigger className="w-48">
+                                      <SelectValue placeholder="Assign teacher" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {getTeachers().map((teacher) => (
+                                        <SelectItem key={teacher.id} value={teacher.id}>
+                                          {teacher.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -236,43 +538,27 @@ export default function AdminDashboard() {
                       )}
                     </div>
 
-                    {/* HOD Assignments */}
+                    {/* Statistics */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">HOD Assignments</h3>
-                      {assignments.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500" data-testid="text-no-hod-assignments">
-                          No HOD assignments found.
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Statistics</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <p className="text-sm text-blue-600">Total Teachers</p>
+                          <p className="text-2xl font-bold text-blue-900">{getTeachers().length}</p>
                         </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {/* Group by department */}
-                          {Array.from(new Set(assignments.map(a => a.department))).map((dept) => {
-                            const deptAssignment = assignments.find(a => a.department === dept);
-                            return (
-                              <div key={dept} className="border border-gray-200 rounded-lg p-4" data-testid={`card-hod-${dept}`}>
-                                <div className="flex justify-between items-start mb-3">
-                                  <div>
-                                    <h4 className="font-medium text-gray-900" data-testid={`dept-title-${dept}`}>
-                                      {dept === "AIDS" ? "Artificial Intelligence & Data Science" :
-                                       dept === "CSE" ? "Computer Science & Engineering" :
-                                       dept === "ECE" ? "Electronics & Communication" :
-                                       dept === "EEE" ? "Electrical & Electronics Engineering" :
-                                       dept === "MECH" ? "Mechanical Engineering" :
-                                       dept === "CIVIL" ? "Civil Engineering" : dept}
-                                    </h4>
-                                    <p className="text-sm text-gray-600" data-testid={`dept-hod-${dept}`}>
-                                      HOD: {deptAssignment?.hod?.name || "Not assigned"}
-                                    </p>
-                                  </div>
-                                  <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80" data-testid={`button-edit-hod-${dept}`}>
-                                    Edit
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <div className="bg-purple-50 p-4 rounded-lg">
+                          <p className="text-sm text-purple-600">Total HODs</p>
+                          <p className="text-2xl font-bold text-purple-900">{getHods().length}</p>
                         </div>
-                      )}
+                        <div className="bg-green-50 p-4 rounded-lg">
+                          <p className="text-sm text-green-600">Active Assignments</p>
+                          <p className="text-2xl font-bold text-green-900">{assignments.length}</p>
+                        </div>
+                        <div className="bg-orange-50 p-4 rounded-lg">
+                          <p className="text-sm text-orange-600">Total Students</p>
+                          <p className="text-2xl font-bold text-orange-900">{users.filter(u => u.role === 'student').length}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -281,6 +567,131 @@ export default function AdminDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* User Edit Dialog */}
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information and department details.
+            </DialogDescription>
+          </DialogHeader>
+          {editingUser && (
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Enter name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="CSE">Computer Science</SelectItem>
+                          <SelectItem value="AIDS">AI & Data Science</SelectItem>
+                          <SelectItem value="ECE">Electronics</SelectItem>
+                          <SelectItem value="EEE">Electrical</SelectItem>
+                          <SelectItem value="MECH">Mechanical</SelectItem>
+                          <SelectItem value="CIVIL">Civil</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="year"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Year</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select year" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="1">1st Year</SelectItem>
+                          <SelectItem value="2">2nd Year</SelectItem>
+                          <SelectItem value="3">3rd Year</SelectItem>
+                          <SelectItem value="4">4th Year</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" placeholder="Enter email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="sinNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SIN Number</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Enter SIN number" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setEditingUser(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={updateUserMutation.isPending}
+                  >
+                    {updateUserMutation.isPending ? "Updating..." : "Update User"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

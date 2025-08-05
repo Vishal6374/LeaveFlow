@@ -118,6 +118,32 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.patch("/api/users/:id", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const userData = z.object({
+        name: z.string().optional(),
+        department: z.enum(["CSE", "AIDS", "ECE", "EEE", "MECH", "CIVIL"]).optional(),
+        year: z.number().min(1).max(4).optional(),
+        email: z.string().email().optional(),
+        sinNumber: z.string().optional(),
+      }).parse(req.body);
+
+      const user = await storage.updateUser(req.params.id, userData);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/department-assignments", async (req, res, next) => {
     try {
       if (!req.isAuthenticated() || req.user?.role !== "admin") {
@@ -140,6 +166,29 @@ export function registerRoutes(app: Express): Server {
       const validatedAssignment = insertDepartmentAssignmentSchema.parse(req.body);
       const assignment = await storage.createDepartmentAssignment(validatedAssignment);
       res.status(201).json(assignment);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/department-assignments/:id", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const assignmentData = z.object({
+        classAdvisorId: z.string().optional(),
+        hodId: z.string().optional(),
+      }).parse(req.body);
+
+      const assignment = await storage.updateDepartmentAssignment(req.params.id, assignmentData);
+      
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+
+      res.json(assignment);
     } catch (error) {
       next(error);
     }

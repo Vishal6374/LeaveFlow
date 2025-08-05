@@ -10,9 +10,9 @@ import {
   type InsertDepartmentAssignment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, or } from "drizzle-orm";
 import session from "express-session";
-import { SessionStore } from "express-session";
+
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
@@ -24,6 +24,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserRole(id: string, role: string): Promise<User | undefined>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
 
   // Leave request operations
@@ -39,11 +40,11 @@ export interface IStorage {
   updateDepartmentAssignment(id: string, assignment: Partial<InsertDepartmentAssignment>): Promise<DepartmentAssignment | undefined>;
   getAllDepartmentAssignments(): Promise<(DepartmentAssignment & { classAdvisor?: User; hod?: User })[]>;
 
-  sessionStore: SessionStore;
+  sessionStore: session.SessionStore;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: SessionStore;
+  sessionStore: session.SessionStore;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -100,32 +101,101 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPendingLeaveRequestsForReviewer(reviewerId: string): Promise<(LeaveRequest & { student: User })[]> {
-    const user = await this.getUser(reviewerId);
-    if (!user) return [];
+    const reviewer = await this.getUser(reviewerId);
+    if (!reviewer) return [];
 
-    // Get requests based on user role and department
-    const query = db
-      .select({
-        id: leaveRequests.id,
-        studentId: leaveRequests.studentId,
-        type: leaveRequests.type,
-        fromDate: leaveRequests.fromDate,
-        toDate: leaveRequests.toDate,
-        reason: leaveRequests.reason,
-        status: leaveRequests.status,
-        reviewedBy: leaveRequests.reviewedBy,
-        reviewedAt: leaveRequests.reviewedAt,
-        submittedAt: leaveRequests.submittedAt,
-        student: users,
-      })
-      .from(leaveRequests)
-      .innerJoin(users, eq(leaveRequests.studentId, users.id))
-      .where(
-        eq(leaveRequests.status, "pending")
-      )
-      .orderBy(desc(leaveRequests.submittedAt));
+    if (reviewer.role === 'admin') {
+      // Admin can see all pending requests
+      const result = await db
+        .select({
+          id: leaveRequests.id,
+          studentId: leaveRequests.studentId,
+          type: leaveRequests.type,
+          fromDate: leaveRequests.fromDate,
+          toDate: leaveRequests.toDate,
+          reason: leaveRequests.reason,
+          status: leaveRequests.status,
+          reviewedBy: leaveRequests.reviewedBy,
+          reviewedAt: leaveRequests.reviewedAt,
+          submittedAt: leaveRequests.submittedAt,
+          student: users,
+        })
+        .from(leaveRequests)
+        .innerJoin(users, eq(leaveRequests.studentId, users.id))
+        .where(eq(leaveRequests.status, 'pending'))
+        .orderBy(desc(leaveRequests.submittedAt));
+      return result;
+    }
 
-    return await query;
+    if (reviewer.role === 'hod') {
+      // HOD can see all pending requests from their department
+      const result = await db
+        .select({
+          id: leaveRequests.id,
+          studentId: leaveRequests.studentId,
+          type: leaveRequests.type,
+          fromDate: leaveRequests.fromDate,
+          toDate: leaveRequests.toDate,
+          reason: leaveRequests.reason,
+          status: leaveRequests.status,
+          reviewedBy: leaveRequests.reviewedBy,
+          reviewedAt: leaveRequests.reviewedAt,
+          submittedAt: leaveRequests.submittedAt,
+          student: users,
+        })
+        .from(leaveRequests)
+        .innerJoin(users, eq(leaveRequests.studentId, users.id))
+        .where(and(
+          eq(leaveRequests.status, 'pending'),
+          eq(users.department, reviewer.department!)
+        ))
+        .orderBy(desc(leaveRequests.submittedAt));
+      return result;
+    }
+
+    if (reviewer.role === 'teacher') {
+      // Teacher can only see requests from classes they are assigned to
+      const assignments = await db
+        .select()
+        .from(departmentAssignments)
+        .where(eq(departmentAssignments.classAdvisorId, reviewerId));
+
+      if (assignments.length === 0) return [];
+
+      // Create conditions for each assignment (department + year combination)
+      const assignmentConditions = assignments.map(assignment => 
+        and(
+          eq(users.department, assignment.department),
+          eq(users.year, assignment.year)
+        )
+      );
+
+      const result = await db
+        .select({
+          id: leaveRequests.id,
+          studentId: leaveRequests.studentId,
+          type: leaveRequests.type,
+          fromDate: leaveRequests.fromDate,
+          toDate: leaveRequests.toDate,
+          reason: leaveRequests.reason,
+          status: leaveRequests.status,
+          reviewedBy: leaveRequests.reviewedBy,
+          reviewedAt: leaveRequests.reviewedAt,
+          submittedAt: leaveRequests.submittedAt,
+          student: users,
+        })
+        .from(leaveRequests)
+        .innerJoin(users, eq(leaveRequests.studentId, users.id))
+        .where(and(
+          eq(leaveRequests.status, 'pending'),
+          // Student must be in one of the teacher's assigned classes
+          assignmentConditions.length === 1 ? assignmentConditions[0] : or(...assignmentConditions)
+        ))
+        .orderBy(desc(leaveRequests.submittedAt));
+      return result;
+    }
+
+    return [];
   }
 
   async updateLeaveRequestStatus(id: string, status: string, reviewerId: string): Promise<LeaveRequest | undefined> {
@@ -206,20 +276,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllDepartmentAssignments(): Promise<(DepartmentAssignment & { classAdvisor?: User; hod?: User })[]> {
-    const query = db
-      .select({
-        id: departmentAssignments.id,
-        department: departmentAssignments.department,
-        year: departmentAssignments.year,
-        classAdvisorId: departmentAssignments.classAdvisorId,
-        hodId: departmentAssignments.hodId,
-        classAdvisor: users,
-        hod: users,
-      })
-      .from(departmentAssignments)
-      .leftJoin(users, eq(departmentAssignments.classAdvisorId, users.id));
+    const result = await db
+      .select()
+      .from(departmentAssignments);
 
-    return await query as any;
+    // Get class advisor and HOD information for each assignment
+    const withDetails = await Promise.all(result.map(async (assignment) => {
+      let classAdvisor: User | undefined;
+      let hod: User | undefined;
+      
+      if (assignment.classAdvisorId) {
+        classAdvisor = await this.getUser(assignment.classAdvisorId);
+      }
+      if (assignment.hodId) {
+        hod = await this.getUser(assignment.hodId);
+      }
+      
+      return {
+        ...assignment,
+        classAdvisor,
+        hod,
+      };
+    }));
+
+    return withDetails;
+  }
+
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set(user)
+      .where(eq(users.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 
