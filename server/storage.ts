@@ -12,6 +12,7 @@ import {
 import { db } from "./db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import session from "express-session";
+import { SessionStore } from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
@@ -38,11 +39,11 @@ export interface IStorage {
   updateDepartmentAssignment(id: string, assignment: Partial<InsertDepartmentAssignment>): Promise<DepartmentAssignment | undefined>;
   getAllDepartmentAssignments(): Promise<(DepartmentAssignment & { classAdvisor?: User; hod?: User })[]>;
 
-  sessionStore: session.SessionStore;
+  sessionStore: SessionStore;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: SessionStore;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -120,10 +121,7 @@ export class DatabaseStorage implements IStorage {
       .from(leaveRequests)
       .innerJoin(users, eq(leaveRequests.studentId, users.id))
       .where(
-        and(
-          eq(leaveRequests.status, "pending"),
-          eq(users.department, user.department)
-        )
+        eq(leaveRequests.status, "pending")
       )
       .orderBy(desc(leaveRequests.submittedAt));
 
@@ -168,7 +166,6 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(leaveRequests.studentId, users.id))
       .where(
         and(
-          eq(users.department, user.department),
           gte(leaveRequests.submittedAt, dateThreshold),
           eq(leaveRequests.reviewedBy, reviewerId)
         )

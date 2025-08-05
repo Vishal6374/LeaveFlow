@@ -242,7 +242,7 @@ export default function StaffDashboard() {
                           <span className={`text-xs ${
                             request.status === "approved" ? "text-success/80" : "text-destructive/80"
                           }`} data-testid={`log-timestamp-${request.id}`}>
-                            {request.reviewedAt && format(new Date(request.reviewedAt), 'MMM dd, h:mm a')}
+                            {request.reviewedAt ? format(new Date(request.reviewedAt), 'MMM dd, h:mm a') : 'N/A'}
                           </span>
                         </div>
                       </div>

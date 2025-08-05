@@ -349,7 +349,7 @@ export default function StudentDashboard() {
                             </div>
                             <div className="text-xs text-right text-gray-500">
                               <p data-testid={`request-submitted-${request.id}`}>
-                                Submitted: {format(new Date(request.submittedAt), 'MMM dd, yyyy')}
+                                Submitted: {request.submittedAt ? format(new Date(request.submittedAt), 'MMM dd, yyyy') : 'Unknown'}
                               </p>
                               {request.reviewedAt && (
                                 <p data-testid={`request-reviewed-${request.id}`}>

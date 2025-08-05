@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,11 +47,12 @@ export default function AuthPage() {
     },
   });
 
-  // Redirect if already logged in
-  if (user) {
-    setLocation("/");
-    return null;
-  }
+  // Redirect if already logged in - use useEffect to avoid setState during render
+  React.useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
 
   const onLogin = async (data: LoginData) => {
     try {
@@ -66,7 +67,7 @@ export default function AuthPage() {
     try {
       // Remove confirmPassword before sending to server
       const { confirmPassword, ...registerData } = data;
-      registerData.username = data.sinNumber; // Use SIN number as username
+      registerData.username = data.sinNumber || ""; // Use SIN number as username
       
       await registerMutation.mutateAsync(registerData);
       setLocation("/");
@@ -199,7 +200,7 @@ export default function AuthPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Department</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-department">
                                     <SelectValue placeholder="Select Dept" />
@@ -229,7 +230,8 @@ export default function AuthPage() {
                             <FormControl>
                               <Input 
                                 placeholder="Enter your SIN number" 
-                                {...field} 
+                                {...field}
+                                value={field.value || ""}
                                 data-testid="input-sin"
                               />
                             </FormControl>

@@ -98,6 +98,9 @@ export const insertLeaveRequestSchema = createInsertSchema(leaveRequests).omit({
   status: true,
   reviewedBy: true,
   reviewedAt: true,
+}).extend({
+  fromDate: z.coerce.date(),
+  toDate: z.coerce.date(),
 });
 
 export const insertDepartmentAssignmentSchema = createInsertSchema(departmentAssignments).omit({
