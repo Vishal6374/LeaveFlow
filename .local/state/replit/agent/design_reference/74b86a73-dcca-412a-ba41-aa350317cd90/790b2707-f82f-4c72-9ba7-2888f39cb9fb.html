@@ -1,0 +1,928 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Leave Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#E3F2FD',
+                            100: '#BBDEFB',
+                            500: '#1976D2',
+                            600: '#1565C0',
+                            700: '#0D47A1'
+                        },
+                        success: {
+                            50: '#E8F5E8',
+                            500: '#4CAF50',
+                            600: '#43A047'
+                        },
+                        warning: {
+                            50: '#FFF3E0',
+                            500: '#FF9800',
+                            600: '#FB8C00'
+                        },
+                        error: {
+                            50: '#FFEBEE',
+                            500: '#F44336',
+                            600: '#E53935'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="font-inter bg-gray-50 min-h-screen">
+    <!-- @COMPONENT: App [Main application wrapper with routing] -->
+    <div id="app">
+        
+        <!-- LOGIN PAGE -->
+        <!-- @COMPONENT: LoginPage [User authentication interface] -->
+        <div id="login-page" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-blue-100 px-4">
+            <div class="max-w-md w-full space-y-8">
+                <div class="text-center">
+                    <div class="mx-auto h-16 w-16 bg-primary-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-graduation-cap text-white text-2xl"></i>
+                    </div>
+                    <h2 class="mt-6 text-3xl font-bold text-gray-900">Student Leave Portal</h2>
+                    <p class="mt-2 text-sm text-gray-600">Sign in to your account</p>
+                </div>
+                
+                <form class="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg" data-event="submit:handleLogin">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="loginId" class="block text-sm font-medium text-gray-700 mb-1">Student ID / Staff ID</label>
+                            <input id="loginId" name="loginId" type="text" required 
+                                class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm" 
+                                placeholder="Enter your ID" data-bind="credentials.id">
+                        </div>
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input id="password" name="password" type="password" required 
+                                class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm" 
+                                placeholder="Enter your password" data-bind="credentials.password">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input id="remember-me" name="remember-me" type="checkbox" 
+                                class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                            <label for="remember-me" class="ml-2 block text-sm text-gray-900">Remember me</label>
+                        </div>
+                        <div class="text-sm">
+                            <a href="#" class="font-medium text-primary-600 hover:text-primary-500">Forgot password?</a>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button type="submit" 
+                            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                            <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                                <i class="fas fa-sign-in-alt text-primary-500 group-hover:text-primary-400"></i>
+                            </span>
+                            Sign In
+                        </button>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="text-sm text-gray-600">
+                            New student? 
+                            <button type="button" onclick="showRegistration()" class="font-medium text-primary-600 hover:text-primary-500">
+                                Register here
+                            </button>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: LoginPage -->
+
+        <!-- STUDENT REGISTRATION PAGE -->
+        <!-- @COMPONENT: RegistrationPage [Student registration form] -->
+        <div id="registration-page" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-blue-100 px-4 hidden">
+            <div class="max-w-md w-full space-y-8">
+                <div class="text-center">
+                    <div class="mx-auto h-16 w-16 bg-primary-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user-plus text-white text-2xl"></i>
+                    </div>
+                    <h2 class="mt-6 text-3xl font-bold text-gray-900">Student Registration</h2>
+                    <p class="mt-2 text-sm text-gray-600">Create your account</p>
+                </div>
+                
+                <form class="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg" data-event="submit:handleRegistration">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="fullName" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                            <input id="fullName" name="fullName" type="text" required 
+                                class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm" 
+                                placeholder="Enter your full name" data-bind="student.name">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="year" class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                                <select id="year" name="year" required 
+                                    class="appearance-none relative block w-full px-3 py-3 border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm" 
+                                    data-bind="student.year">
+                                    <option value="">Select Year</option>
+                                    <option value="1">First Year</option>
+                                    <option value="2">Second Year</option>
+                                    <option value="3">Third Year</option>
+                                    <option value="4">Fourth Year</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="department" class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                                <select id="department" name="department" required 
+                                    class="appearance-none relative block w-full px-3 py-3 border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm" 
+                                    data-bind="student.department">
+                                    <option value="">Select Dept</option>
+                                    <option value="CSE">CSE</option>
+                                    <option value="AIDS">AI&DS</option>
+                                    <option value="ECE">ECE</option>
+                                    <option value="EEE">EEE</option>
+                                    <option value="MECH">MECH</option>
+                                    <option value="CIVIL">CIVIL</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="sinNumber" class="block text-sm font-medium text-gray-700 mb-1">SIN Number</label>
+                            <input id="sinNumber" name="sinNumber" type="text" required 
+                                class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm" 
+                                placeholder="Enter your SIN number" data-bind="student.sinNumber">
+                        </div>
+                        
+                        <div>
+                            <label for="regPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input id="regPassword" name="regPassword" type="password" required 
+                                class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm" 
+                                placeholder="Create password" data-bind="student.password">
+                        </div>
+                        
+                        <div>
+                            <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                            <input id="confirmPassword" name="confirmPassword" type="password" required 
+                                class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm" 
+                                placeholder="Confirm password" data-bind="student.confirmPassword">
+                        </div>
+                    </div>
+
+                    <div>
+                        <button type="submit" 
+                            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                            <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                                <i class="fas fa-user-plus text-primary-500 group-hover:text-primary-400"></i>
+                            </span>
+                            Register
+                        </button>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="text-sm text-gray-600">
+                            Already have an account? 
+                            <button type="button" onclick="showLogin()" class="font-medium text-primary-600 hover:text-primary-500">
+                                Sign in here
+                            </button>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: RegistrationPage -->
+
+        <!-- STUDENT DASHBOARD -->
+        <!-- @COMPONENT: StudentDashboard [Main student interface] -->
+        <div id="student-dashboard" class="min-h-screen bg-gray-50 hidden">
+            <!-- Navigation -->
+            <nav class="bg-white shadow-sm border-b border-gray-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between h-16">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 flex items-center">
+                                <div class="h-8 w-8 bg-primary-500 rounded-full flex items-center justify-center mr-3">
+                                    <i class="fas fa-graduation-cap text-white text-sm"></i>
+                                </div>
+                                <h1 class="text-xl font-semibold text-gray-900">Student Portal</h1>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-gray-600" data-bind="user.name">John Doe</span>
+                            <span class="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded-full" data-bind="user.role">Student</span>
+                            <button onclick="logout()" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <!-- Dashboard Cards -->
+                <div class="px-4 py-6 sm:px-0">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <!-- Request Leave Card -->
+                        <div class="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                            <div class="p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <div class="h-12 w-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-calendar-plus text-primary-600 text-xl"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-lg font-medium text-gray-900">Request Leave</h3>
+                                        <p class="text-sm text-gray-500">Submit a new leave request</p>
+                                    </div>
+                                </div>
+                                <div class="mt-6">
+                                    <button onclick="showRequestForm()" 
+                                        class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                                        New Request
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View Status Card -->
+                        <div class="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                            <div class="p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <div class="h-12 w-12 bg-warning-100 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-eye text-warning-600 text-xl"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-lg font-medium text-gray-900">View Status</h3>
+                                        <p class="text-sm text-gray-500">Check your leave requests</p>
+                                    </div>
+                                </div>
+                                <div class="mt-6">
+                                    <button onclick="showStatusView()" 
+                                        class="w-full bg-warning-600 hover:bg-warning-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                                        View Status
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Profile Card -->
+                        <div class="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                            <div class="p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <div class="h-12 w-12 bg-success-100 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-user text-success-600 text-xl"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-lg font-medium text-gray-900">Profile</h3>
+                                        <p class="text-sm text-gray-500">View your information</p>
+                                    </div>
+                                </div>
+                                <div class="mt-6">
+                                    <button onclick="showProfile()" 
+                                        class="w-full bg-success-600 hover:bg-success-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                                        View Profile
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leave Request Form Modal -->
+                    <div id="request-modal" class="fixed inset-0 z-50 overflow-y-auto hidden bg-black bg-opacity-50">
+                        <div class="flex items-center justify-center min-h-screen px-4">
+                            <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h3 class="text-lg font-semibold text-gray-900">Request Leave</h3>
+                                    <button onclick="hideRequestForm()" class="text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <form data-event="submit:handleLeaveRequest">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
+                                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" data-bind="request.type">
+                                                <option value="">Select type</option>
+                                                <option value="sick">Sick Leave</option>
+                                                <option value="personal">Personal Leave</option>
+                                                <option value="emergency">Emergency Leave</option>
+                                                <option value="medical">Medical Leave</option>
+                                            </select>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                                                <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" data-bind="request.fromDate">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                                                <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" data-bind="request.toDate">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                                            <textarea rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Please provide reason for leave..." data-bind="request.reason"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-3 mt-6">
+                                        <button type="button" onclick="hideRequestForm()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                                        <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">Submit Request</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leave Status View -->
+                    <div id="status-view" class="hidden">
+                        <div class="bg-white shadow-lg rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-6">My Leave Requests</h3>
+                            <div class="space-y-4">
+                                <!-- @MAP: requests.map(request => ( -->
+                                <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors" data-mock="true">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-2">
+                                                <span class="text-sm font-medium text-gray-900" data-bind="request.type">Sick Leave</span>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-warning-100 text-warning-800" data-bind="request.status">Pending</span>
+                                            </div>
+                                            <p class="text-sm text-gray-600 mb-2" data-bind="request.dateRange">Nov 15, 2024 - Nov 17, 2024</p>
+                                            <p class="text-sm text-gray-700" data-bind="request.reason">Fever and cold symptoms</p>
+                                        </div>
+                                        <div class="text-xs text-right text-gray-500">
+                                            <p data-bind="request.submittedDate">Submitted: Nov 14, 2024</p>
+                                            <p data-bind="request.reviewedBy">Reviewing: Dr. Smith</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: StudentDashboard -->
+
+        <!-- STAFF/HOD DASHBOARD -->
+        <!-- @COMPONENT: StaffDashboard [Teacher/HOD interface] -->
+        <div id="staff-dashboard" class="min-h-screen bg-gray-50 hidden">
+            <!-- Navigation -->
+            <nav class="bg-white shadow-sm border-b border-gray-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between h-16">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 flex items-center">
+                                <div class="h-8 w-8 bg-primary-500 rounded-full flex items-center justify-center mr-3">
+                                    <i class="fas fa-chalkboard-teacher text-white text-sm"></i>
+                                </div>
+                                <h1 class="text-xl font-semibold text-gray-900">Staff Portal</h1>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-gray-600" data-bind="user.name">Dr. Jane Smith</span>
+                            <span class="text-xs bg-success-100 text-success-800 px-2 py-1 rounded-full" data-bind="user.role">Teacher</span>
+                            <button onclick="logout()" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <div class="px-4 py-6 sm:px-0">
+                    <!-- Tab Navigation -->
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="border-b border-gray-200">
+                            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                                <button onclick="showPendingRequests()" id="pending-tab" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm border-primary-500 text-primary-600">
+                                    Pending Requests
+                                    <span class="bg-primary-100 text-primary-600 ml-2 py-0.5 px-2 rounded-full text-xs" data-bind="pendingCount">3</span>
+                                </button>
+                                <button onclick="showLogs()" id="logs-tab" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm">
+                                    Activity Logs
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- Pending Requests Tab -->
+                        <div id="pending-requests" class="p-6">
+                            <div class="space-y-4">
+                                <!-- @MAP: pendingRequests.map(request => ( -->
+                                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-gray-50" data-mock="true">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-3 mb-2">
+                                                <h4 class="text-lg font-medium text-gray-900" data-bind="request.studentName">Alice Johnson</h4>
+                                                <span class="text-sm text-gray-500" data-bind="request.studentDetails">3rd Year CSE - SIN: 2021CS001</span>
+                                            </div>
+                                            <div class="flex items-center space-x-4 mb-3">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800" data-bind="request.type">
+                                                    <i class="fas fa-thermometer-half mr-1"></i>
+                                                    Sick Leave
+                                                </span>
+                                                <span class="text-sm text-gray-600" data-bind="request.duration">Nov 15-17, 2024 (3 days)</span>
+                                            </div>
+                                            <p class="text-sm text-gray-700 mb-3" data-bind="request.reason">Fever and cold symptoms. Doctor recommended rest for 3 days.</p>
+                                            <p class="text-xs text-gray-500" data-bind="request.submittedTime">Submitted: Nov 14, 2024 at 2:30 PM</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-3 pt-4 border-t border-gray-200">
+                                        <button onclick="approveRequest()" class="flex-1 bg-success-600 hover:bg-success-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                                            <i class="fas fa-check mr-2"></i>
+                                            Approve
+                                        </button>
+                                        <button onclick="rejectRequest()" class="flex-1 bg-error-600 hover:bg-error-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                                            <i class="fas fa-times mr-2"></i>
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+
+                                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-gray-50" data-mock="true">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-3 mb-2">
+                                                <h4 class="text-lg font-medium text-gray-900">Bob Wilson</h4>
+                                                <span class="text-sm text-gray-500">2nd Year AI&DS - SIN: 2022AI002</span>
+                                            </div>
+                                            <div class="flex items-center space-x-4 mb-3">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                    Emergency Leave
+                                                </span>
+                                                <span class="text-sm text-gray-600">Nov 16-18, 2024 (2 days)</span>
+                                            </div>
+                                            <p class="text-sm text-gray-700 mb-3">Family emergency requiring immediate attention.</p>
+                                            <p class="text-xs text-gray-500">Submitted: Nov 15, 2024 at 9:15 AM</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-3 pt-4 border-t border-gray-200">
+                                        <button onclick="approveRequest()" class="flex-1 bg-success-600 hover:bg-success-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                                            <i class="fas fa-check mr-2"></i>
+                                            Approve
+                                        </button>
+                                        <button onclick="rejectRequest()" class="flex-1 bg-error-600 hover:bg-error-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                                            <i class="fas fa-times mr-2"></i>
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Activity Logs Tab -->
+                        <div id="activity-logs" class="p-6 hidden">
+                            <div class="space-y-4">
+                                <!-- @MAP: activityLogs.map(log => ( -->
+                                <div class="border-l-4 border-success-400 bg-success-50 p-4 rounded-r-lg" data-mock="true">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-success-800" data-bind="log.action">
+                                                <i class="fas fa-check-circle mr-2"></i>
+                                                Approved leave request for Sarah Davis
+                                            </p>
+                                            <p class="text-xs text-success-600 mt-1" data-bind="log.details">3rd Year ECE - Medical Leave (Nov 10-12, 2024)</p>
+                                        </div>
+                                        <span class="text-xs text-success-600" data-bind="log.timestamp">Nov 14, 3:45 PM</span>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+
+                                <div class="border-l-4 border-error-400 bg-error-50 p-4 rounded-r-lg" data-mock="true">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-error-800">
+                                                <i class="fas fa-times-circle mr-2"></i>
+                                                Rejected leave request for Mike Chen
+                                            </p>
+                                            <p class="text-xs text-error-600 mt-1">2nd Year CSE - Personal Leave (Insufficient notice)</p>
+                                        </div>
+                                        <span class="text-xs text-error-600">Nov 13, 11:20 AM</span>
+                                    </div>
+                                </div>
+
+                                <div class="border-l-4 border-success-400 bg-success-50 p-4 rounded-r-lg" data-mock="true">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-success-800">
+                                                <i class="fas fa-check-circle mr-2"></i>
+                                                Approved leave request for Emma Rodriguez
+                                            </p>
+                                            <p class="text-xs text-success-600 mt-1">1st Year AI&DS - Sick Leave (Nov 11-13, 2024)</p>
+                                        </div>
+                                        <span class="text-xs text-success-600">Nov 12, 2:15 PM</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: StaffDashboard -->
+
+        <!-- ADMIN DASHBOARD -->
+        <!-- @COMPONENT: AdminDashboard [Admin interface for role and department management] -->
+        <div id="admin-dashboard" class="min-h-screen bg-gray-50 hidden">
+            <!-- Navigation -->
+            <nav class="bg-white shadow-sm border-b border-gray-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between h-16">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 flex items-center">
+                                <div class="h-8 w-8 bg-primary-500 rounded-full flex items-center justify-center mr-3">
+                                    <i class="fas fa-cog text-white text-sm"></i>
+                                </div>
+                                <h1 class="text-xl font-semibold text-gray-900">Admin Portal</h1>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-gray-600" data-bind="user.name">Admin User</span>
+                            <span class="text-xs bg-error-100 text-error-800 px-2 py-1 rounded-full" data-bind="user.role">Admin</span>
+                            <button onclick="logout()" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <div class="px-4 py-6 sm:px-0">
+                    <!-- Tab Navigation -->
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="border-b border-gray-200">
+                            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                                <button onclick="showUserManagement()" id="users-tab" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm border-primary-500 text-primary-600">
+                                    User Management
+                                </button>
+                                <button onclick="showDepartmentMapping()" id="dept-tab" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm">
+                                    Department Mapping
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- User Management Tab -->
+                        <div id="user-management" class="p-6">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-semibold text-gray-900">User Roles</h3>
+                                <button onclick="addNewUser()" class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg">
+                                    <i class="fas fa-plus mr-2"></i>Add User
+                                </button>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <!-- @MAP: users.map(user => ( -->
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center">
+                                                        <i class="fas fa-user text-gray-600"></i>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900" data-bind="user.name">Dr. Jane Smith</div>
+                                                        <div class="text-sm text-gray-500" data-bind="user.email">jane.smith@college.edu</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <select class="text-sm border border-gray-300 rounded px-3 py-1" data-bind="user.role">
+                                                    <option value="student">Student</option>
+                                                    <option value="teacher" selected>Teacher</option>
+                                                    <option value="hod">HOD</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="user.department">CSE</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-success-100 text-success-800" data-bind="user.status">Active</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Edit</button>
+                                                <button class="text-error-600 hover:text-error-900">Delete</button>
+                                            </td>
+                                        </tr>
+                                        <!-- @END_MAP )) -->
+                                        
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center">
+                                                        <i class="fas fa-user text-gray-600"></i>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900">Prof. Michael Brown</div>
+                                                        <div class="text-sm text-gray-500">michael.brown@college.edu</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <select class="text-sm border border-gray-300 rounded px-3 py-1">
+                                                    <option value="student">Student</option>
+                                                    <option value="teacher">Teacher</option>
+                                                    <option value="hod" selected>HOD</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">AI&DS</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-success-100 text-success-800">Active</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Edit</button>
+                                                <button class="text-error-600 hover:text-error-900">Delete</button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Department Mapping Tab -->
+                        <div id="department-mapping" class="p-6 hidden">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <!-- Class Advisor Assignments -->
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Class Advisor Assignments</h3>
+                                    <div class="space-y-4">
+                                        <!-- @MAP: classAssignments.map(assignment => ( -->
+                                        <div class="border border-gray-200 rounded-lg p-4" data-mock="true">
+                                            <div class="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-900" data-bind="assignment.class">2nd Year CSE</h4>
+                                                    <p class="text-sm text-gray-600" data-bind="assignment.advisor">Class Advisor: Dr. Jane Smith</p>
+                                                </div>
+                                                <button class="text-primary-600 hover:text-primary-900 text-sm">Edit</button>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                <span data-bind="assignment.studentCount">45 students</span> • 
+                                                <span data-bind="assignment.lastUpdated">Updated: Nov 10, 2024</span>
+                                            </div>
+                                        </div>
+                                        <!-- @END_MAP )) -->
+                                        
+                                        <div class="border border-gray-200 rounded-lg p-4" data-mock="true">
+                                            <div class="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-900">1st Year AI&DS</h4>
+                                                    <p class="text-sm text-gray-600">Class Advisor: Dr. Sarah Wilson</p>
+                                                </div>
+                                                <button class="text-primary-600 hover:text-primary-900 text-sm">Edit</button>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                <span>38 students</span> • 
+                                                <span>Updated: Nov 8, 2024</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="border border-gray-200 rounded-lg p-4" data-mock="true">
+                                            <div class="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-900">3rd Year ECE</h4>
+                                                    <p class="text-sm text-gray-600">Class Advisor: Prof. David Lee</p>
+                                                </div>
+                                                <button class="text-primary-600 hover:text-primary-900 text-sm">Edit</button>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                <span>42 students</span> • 
+                                                <span>Updated: Nov 12, 2024</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- HOD Assignments -->
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-4">HOD Assignments</h3>
+                                    <div class="space-y-4">
+                                        <!-- @MAP: hodAssignments.map(assignment => ( -->
+                                        <div class="border border-gray-200 rounded-lg p-4" data-mock="true">
+                                            <div class="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-900" data-bind="assignment.department">Computer Science & Engineering</h4>
+                                                    <p class="text-sm text-gray-600" data-bind="assignment.hod">HOD: Prof. Michael Brown</p>
+                                                </div>
+                                                <button class="text-primary-600 hover:text-primary-900 text-sm">Edit</button>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                <span data-bind="assignment.facultyCount">12 faculty</span> • 
+                                                <span data-bind="assignment.studentCount">180 students</span>
+                                            </div>
+                                        </div>
+                                        <!-- @END_MAP )) -->
+                                        
+                                        <div class="border border-gray-200 rounded-lg p-4" data-mock="true">
+                                            <div class="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-900">Artificial Intelligence & Data Science</h4>
+                                                    <p class="text-sm text-gray-600">HOD: Dr. Lisa Chen</p>
+                                                </div>
+                                                <button class="text-primary-600 hover:text-primary-900 text-sm">Edit</button>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                <span>8 faculty</span> • 
+                                                <span>120 students</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="border border-gray-200 rounded-lg p-4" data-mock="true">
+                                            <div class="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-900">Electronics & Communication</h4>
+                                                    <p class="text-sm text-gray-600">HOD: Prof. Robert Kumar</p>
+                                                </div>
+                                                <button class="text-primary-600 hover:text-primary-900 text-sm">Edit</button>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                <span>10 faculty</span> • 
+                                                <span>150 students</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: AdminDashboard -->
+
+    </div>
+    <!-- @END_COMPONENT: App -->
+
+    <script>
+        // TODO: Implement proper routing and state management
+        (function() {
+            // Page navigation functions
+            window.showLogin = function() {
+                hideAllPages();
+                document.getElementById('login-page').classList.remove('hidden');
+            };
+
+            window.showRegistration = function() {
+                hideAllPages();
+                document.getElementById('registration-page').classList.remove('hidden');
+            };
+
+            window.showStudentDashboard = function() {
+                hideAllPages();
+                document.getElementById('student-dashboard').classList.remove('hidden');
+            };
+
+            window.showStaffDashboard = function() {
+                hideAllPages();
+                document.getElementById('staff-dashboard').classList.remove('hidden');
+            };
+
+            window.showAdminDashboard = function() {
+                hideAllPages();
+                document.getElementById('admin-dashboard').classList.remove('hidden');
+            };
+
+            function hideAllPages() {
+                const pages = ['login-page', 'registration-page', 'student-dashboard', 'staff-dashboard', 'admin-dashboard'];
+                pages.forEach(pageId => {
+                    document.getElementById(pageId).classList.add('hidden');
+                });
+            }
+
+            // Student dashboard functions
+            window.showRequestForm = function() {
+                document.getElementById('request-modal').classList.remove('hidden');
+                document.getElementById('status-view').classList.add('hidden');
+            };
+
+            window.hideRequestForm = function() {
+                document.getElementById('request-modal').classList.add('hidden');
+            };
+
+            window.showStatusView = function() {
+                document.getElementById('status-view').classList.remove('hidden');
+                document.getElementById('request-modal').classList.add('hidden');
+            };
+
+            window.showProfile = function() {
+                alert('Profile view - TODO: Implement profile management');
+            };
+
+            // Staff dashboard functions
+            window.showPendingRequests = function() {
+                document.getElementById('pending-requests').classList.remove('hidden');
+                document.getElementById('activity-logs').classList.add('hidden');
+                
+                // Update tab styling
+                document.getElementById('pending-tab').classList.add('border-primary-500', 'text-primary-600');
+                document.getElementById('pending-tab').classList.remove('border-transparent', 'text-gray-500');
+                document.getElementById('logs-tab').classList.remove('border-primary-500', 'text-primary-600');
+                document.getElementById('logs-tab').classList.add('border-transparent', 'text-gray-500');
+            };
+
+            window.showLogs = function() {
+                document.getElementById('activity-logs').classList.remove('hidden');
+                document.getElementById('pending-requests').classList.add('hidden');
+                
+                // Update tab styling
+                document.getElementById('logs-tab').classList.add('border-primary-500', 'text-primary-600');
+                document.getElementById('logs-tab').classList.remove('border-transparent', 'text-gray-500');
+                document.getElementById('pending-tab').classList.remove('border-primary-500', 'text-primary-600');
+                document.getElementById('pending-tab').classList.add('border-transparent', 'text-gray-500');
+            };
+
+            window.approveRequest = function() {
+                // TODO: Implement request approval logic
+                alert('Request approved - TODO: Update database and send notifications');
+            };
+
+            window.rejectRequest = function() {
+                // TODO: Implement request rejection logic  
+                alert('Request rejected - TODO: Update database and send notifications');
+            };
+
+            // Admin dashboard functions
+            window.showUserManagement = function() {
+                document.getElementById('user-management').classList.remove('hidden');
+                document.getElementById('department-mapping').classList.add('hidden');
+                
+                // Update tab styling
+                document.getElementById('users-tab').classList.add('border-primary-500', 'text-primary-600');
+                document.getElementById('users-tab').classList.remove('border-transparent', 'text-gray-500');
+                document.getElementById('dept-tab').classList.remove('border-primary-500', 'text-primary-600');
+                document.getElementById('dept-tab').classList.add('border-transparent', 'text-gray-500');
+            };
+
+            window.showDepartmentMapping = function() {
+                document.getElementById('department-mapping').classList.remove('hidden');
+                document.getElementById('user-management').classList.add('hidden');
+                
+                // Update tab styling
+                document.getElementById('dept-tab').classList.add('border-primary-500', 'text-primary-600');
+                document.getElementById('dept-tab').classList.remove('border-transparent', 'text-gray-500');
+                document.getElementById('users-tab').classList.remove('border-primary-500', 'text-primary-600');
+                document.getElementById('users-tab').classList.add('border-transparent', 'text-gray-500');
+            };
+
+            window.addNewUser = function() {
+                // TODO: Implement add user modal
+                alert('Add new user - TODO: Implement user creation form');
+            };
+
+            // Common functions
+            window.logout = function() {
+                // TODO: Implement logout logic
+                showLogin();
+            };
+
+            // Initialize page
+            showLogin();
+
+            // Demo navigation for testing different roles
+            // Remove these in production
+            setTimeout(() => {
+                const demoNav = document.createElement('div');
+                demoNav.className = 'fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg border z-50';
+                demoNav.innerHTML = `
+                    <div class="text-xs font-medium text-gray-700 mb-2">Demo Navigation:</div>
+                    <div class="space-y-1">
+                        <button onclick="showStudentDashboard()" class="block w-full text-left text-xs text-primary-600 hover:text-primary-800">Student View</button>
+                        <button onclick="showStaffDashboard()" class="block w-full text-left text-xs text-success-600 hover:text-success-800">Staff View</button>
+                        <button onclick="showAdminDashboard()" class="block w-full text-left text-xs text-error-600 hover:text-error-800">Admin View</button>
+                        <button onclick="showLogin()" class="block w-full text-left text-xs text-gray-600 hover:text-gray-800">Login</button>
+                    </div>
+                `;
+                document.body.appendChild(demoNav);
+            }, 1000);
+        })();
+    </script>
+</body>
+</html>
